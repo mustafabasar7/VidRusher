@@ -145,24 +145,46 @@ class VidRusherEngine:
             contents.append(types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"))
             
         contents.append("""
-        Create a video script. Use exact 'video_file' names. Add 'reasoning' for each selection.
-        Return ONLY a JSON array of objects with exactly these keys: "text", "video_file", "reasoning".
+        You are a video producer. Create a script for a video about: '{prompt}'.
+        Use ONLY the provided clip filenames for 'video_file'. 
+        For each scene, provide:
+        - 'text': The narration/voiceover text.
+        - 'video_file': The filename of the clip that best fits this part of the narration.
+        - 'reasoning': Why this clip was chosen.
+        
+        Return the result as a JSON array of objects.
         """)
         
         try:
             response = self.genai_client.models.generate_content(
                 model='gemini-2.0-flash',
-                contents=contents
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    response_mime_type='application/json',
+                    response_schema={
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "text": {"type": "string"},
+                                "video_file": {"type": "string"},
+                                "reasoning": {"type": "string"}
+                            },
+                            "required": ["text", "video_file", "reasoning"]
+                        }
+                    }
+                )
             )
-            text = response.text
-            json_match = re.search(r'\[.*\]', text, re.DOTALL)
-            if json_match:
-                content = json_match.group(0)
-            else:
-                content = text.strip()
             
-            content = content.replace("```json", "").replace("```", "").strip()
-            scenes = json.loads(content)
+            scenes = response.parsed
+            if not isinstance(scenes, list):
+                # Fallback if parsed isn't a list for some reason
+                text = response.text
+                json_match = re.search(r'\[.*\]', text, re.DOTALL)
+                content = json_match.group(0) if json_match else text.strip()
+                content = content.replace("```json", "").replace("```", "").strip()
+                scenes = json.loads(content)
+                
             return scenes, [item['path'] for item in video_indexes]
         except Exception as e:
             print(f"AI Error: {e}")
@@ -332,27 +354,33 @@ def create_demo():
         video_count = len(current_engine[0].get_stock_videos())
         return f"Engine initialized! Found {video_count} videos in: {current_engine[0].stock_folder}"
     
+    def get_working_folder(stock_path, upload_files):
+        """Helper to determine and prepare the active video folder."""
+        if upload_files:
+            if len(upload_files) > 10:
+                raise ValueError("Too many videos! Maximum limit is 10 videos.")
+                
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            upload_dir = os.path.join(".", "temp", f"upload_{timestamp}")
+            os.makedirs(upload_dir, exist_ok=True)
+            
+            import shutil
+            for f_obj in upload_files:
+                shutil.copy(f_obj.name, os.path.join(upload_dir, os.path.basename(f_obj.name)))
+            return upload_dir
+        return stock_path if stock_path else "."
+
     def process_video(prompt, gemini_key, google_key, stock_path, upload_files, progress=gr.Progress()):
         """Main video generation function."""
         if not prompt:
             return None, "Please enter a prompt!", []
         
-        # Determine working folder: use uploads if provided, otherwise stock_path
-        working_folder = stock_path if stock_path else "."
-        
-        if upload_files:
-            # Create a unique temp folder for this upload session
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            upload_dir = os.path.join(".", "temp", f"upload_{timestamp}")
-            os.makedirs(upload_dir, exist_ok=True)
+        try:
+            working_folder = get_working_folder(stock_path, upload_files)
+        except ValueError as e:
+            return None, f"❌ {str(e)}", []
             
-            # Copy uploaded files to the temp upload dir
-            import shutil
-            for f_obj in upload_files:
-                shutil.copy(f_obj.name, os.path.join(upload_dir, os.path.basename(f_obj.name)))
-            
-            working_folder = upload_dir
-            print(f"Using uploaded files in: {working_folder}")
+        print(f"Using library in: {working_folder}")
 
         # Initialize engine with the chosen folder
         engine = VidRusherEngine(
@@ -385,9 +413,15 @@ def create_demo():
         
         return asyncio.run(async_run())
     
-    def index_videos(gemini_key, stock_path, progress=gr.Progress()):
+    def index_videos(gemini_key, stock_path, upload_files, progress=gr.Progress()):
         """Index video library and show keyframes."""
-        engine = VidRusherEngine(stock_folder=stock_path if stock_path else ".", gemini_key=gemini_key)
+        try:
+            working_folder = get_working_folder(stock_path, upload_files)
+        except ValueError as e:
+            gr.Warning(str(e))
+            return []
+            
+        engine = VidRusherEngine(stock_folder=working_folder, gemini_key=gemini_key)
         
         async def async_index():
             engine._update_progress(progress, 0.1, "Scanning library...")
@@ -448,13 +482,13 @@ def create_demo():
                 
                 with gr.Tab("Upload Your Videos"):
                     video_upload = gr.File(
-                        label="Upload mp4 clips",
+                        label="Upload mp4 clips (Max 10)",
                         file_count="multiple",
                         file_types=[".mp4"]
                     )
-                    gr.Markdown("*If you upload videos here, the system will use them instead of the Library Path.*")
+                    gr.Markdown("*Limit: 10 videos. If uploaded, these take priority.*")
                 
-                index_btn.click(index_videos, inputs=[gemini_input, stock_path_input], outputs=[gallery])
+                index_btn.click(index_videos, inputs=[gemini_input, stock_path_input, video_upload], outputs=[gallery])
 
             with gr.Column(scale=1):
                 video_output = gr.Video(label="Generated Video")
