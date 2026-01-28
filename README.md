@@ -1,5 +1,5 @@
 ---
-title: VidRush
+title: VidRusher
 emoji: 🎬
 colorFrom: blue
 colorTo: indigo
@@ -11,7 +11,7 @@ pinned: false
 license: mit
 ---
 
-# 🎬 VidRush AI Video Engine
+# 🎬 VidRusher AI Video Engine
 
 **An end-to-end autonomous AI video production system** that takes a text prompt, analyzes a video library using computer vision, generates professional voiceover, and produces perfectly synchronized videos.
 
@@ -107,7 +107,7 @@ MIT License - free to use and modify.
 
 **Mustafa Başar**
 - GitHub: [@mustafabasar7](https://github.com/mustafabasar7)
-- Email: mustafabasar7@gmail.com
+- Email: mustafa.r.basar@gmail.com
 
 ---
 
