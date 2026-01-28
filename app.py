@@ -378,10 +378,11 @@ def create_demo():
         video_count = len(current_engine[0].get_stock_videos())
         return f"Engine initialized! Found {video_count} videos in: {current_engine[0].stock_folder}"
     
-    def get_working_folder(stock_path, upload_files):
-        """Helper to determine and prepare the active video folder. Enforces mandatory selection."""
+    def get_working_folder(stock_path, upload_files, progress=None):
+        """Helper to determine and prepare the active video folder with progress tracking."""
         if upload_files:
-            if len(upload_files) > 10:
+            total_files = len(upload_files)
+            if total_files > 10:
                 raise ValueError("Too many videos! Maximum limit is 10 videos.")
                 
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -389,12 +390,17 @@ def create_demo():
             os.makedirs(upload_dir, exist_ok=True)
             
             import shutil
-            for f_obj in upload_files:
-                shutil.copy(f_obj.name, os.path.join(upload_dir, os.path.basename(f_obj.name)))
+            for i, f_obj in enumerate(upload_files):
+                filename = os.path.basename(f_obj.name)
+                if progress:
+                    # Map 0.0-0.2 range to file preparation
+                    prog_val = (i + 1) / total_files * 0.2
+                    progress(prog_val, desc=f"Preparing video {i+1}/{total_files}: {filename}")
+                
+                shutil.copy(f_obj.name, os.path.join(upload_dir, filename))
             return upload_dir
             
         if stock_path and os.path.isdir(stock_path):
-            # Check if there are actually mp4s there
             vids = [f for f in os.listdir(stock_path) if f.endswith(".mp4")]
             if vids:
                 return stock_path
@@ -407,7 +413,7 @@ def create_demo():
             return None, "Please enter a prompt!", []
         
         try:
-            working_folder = get_working_folder(stock_path, upload_files)
+            working_folder = get_working_folder(stock_path, upload_files, progress=progress)
         except ValueError as e:
             return None, f"❌ {str(e)}", []
             
@@ -447,7 +453,7 @@ def create_demo():
     def index_videos(gemini_key, stock_path, upload_files, progress=gr.Progress()):
         """Index video library and show keyframes."""
         try:
-            working_folder = get_working_folder(stock_path, upload_files)
+            working_folder = get_working_folder(stock_path, upload_files, progress=progress)
         except ValueError as e:
             gr.Warning(str(e))
             return []
