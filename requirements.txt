@@ -1,8 +1,9 @@
 moviepy>=2.0.0
 gradio>=5.9.1
+gradio-client>=1.5.3
 huggingface_hub>=0.25.2
 google-genai>=0.3.0
-edge-tts>=6.1.0
+edge_tts>=6.1.0
 python-dotenv>=1.0.0
 pillow>=10.0.0
 requests>=2.31.0
