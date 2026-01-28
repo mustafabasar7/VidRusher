@@ -15,7 +15,7 @@ license: mit
 
 **An end-to-end autonomous AI video production system** that takes a text prompt, analyzes a video library using computer vision, generates professional voiceover, and produces perfectly synchronized videos.
 
-[![Open in Spaces](https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-sm.svg)](https://huggingface.co/spaces/mustafabasar7/vidrusher)
+[![Open in Spaces](https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-sm.svg)](https://huggingface.co/spaces/mustafabasar777/vidrusher)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![Gemini](https://img.shields.io/badge/AI-Gemini%202.0%20Flash-orange)
 ![MoviePy](https://img.shields.io/badge/Video-MoviePy%20v2-green)
