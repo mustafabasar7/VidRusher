@@ -43,12 +43,12 @@ class VidRusherEngine:
         self.genai_client = None
         if self.gemini_api_key:
             self.genai_client = genai.Client(api_key=self.gemini_api_key)
-            print("✅ Gemini API Client configured")
+            print("Gemini API Client configured")
         
         if self.google_api_key:
-            print("✅ Google Cloud TTS configured")
+            print("Google Cloud TTS configured")
         else:
-            print("ℹ️ Using Edge-TTS (free fallback)")
+            print("Using Edge-TTS (free fallback)")
 
     def _find_ffmpeg(self):
         """Checks if ffmpeg is in PATH or in local directory."""
@@ -177,7 +177,7 @@ class VidRusherEngine:
             audio_path = os.path.join(self.temp_dir, f"scene_{i}.mp3")
             
             if self.google_api_key:
-                print(f"🎙️ Google TTS: Scene {i}")
+                print(f"Google TTS: Scene {i}")
                 url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={self.google_api_key}"
                 payload = {
                     "input": {"text": scene['text']},
@@ -291,7 +291,7 @@ class VidRusherEngine:
         if not final_clips:
             return None
 
-        print("🎬 Rendering final video...")
+        print("Rendering final video...")
         final_video = concatenate_videoclips(final_clips, method="compose")
         
         output_name = os.path.join(self.temp_dir, "vidrusher_output.mp4")
@@ -330,12 +330,12 @@ def create_demo():
             google_tts_key=google_key if google_key else None
         )
         video_count = len(current_engine[0].get_stock_videos())
-        return f"✅ Engine initialized! Found {video_count} videos in library."
+        return f"Engine initialized! Found {video_count} videos in library."
     
     def process_video(prompt, gemini_key, google_key, progress=gr.Progress()):
         """Main video generation function."""
         if not prompt:
-            return None, "❌ Please enter a prompt!", []
+            return None, "Please enter a prompt!", []
         
         # Initialize/update engine with keys
         engine = VidRusherEngine(
@@ -348,7 +348,7 @@ def create_demo():
             scenes, thumbs = await engine.generate_script(prompt, progress)
             
             if not scenes:
-                return None, "❌ No script generated.", thumbs
+                return None, "No script generated.", thumbs
             
             engine._update_progress(progress, 0.5, "Generating audio...")
             scenes = await engine.generate_audio(scenes)
@@ -357,9 +357,9 @@ def create_demo():
             output_video = engine.assemble_video(scenes, progress)
             
             if not output_video:
-                return None, "❌ Video assembly failed.", thumbs
+                return None, "Video assembly failed.", thumbs
             
-            reasoning_md = "### 🧠 AI Analysis & Reasoning\n\n"
+            reasoning_md = "### AI Analysis & Reasoning\n\n"
             for i, scene in enumerate(scenes):
                 reasoning_md += f"**Scene {i+1}:** `{scene.get('video_file')}`\n"
                 reasoning_md += f"> *{scene.get('reasoning', 'Best match selected.')}*\n\n"
@@ -389,11 +389,11 @@ def create_demo():
         """
     ) as demo:
         
-        gr.Markdown("# 🎬 VidRusher AI Video Engine", elem_classes="main-title")
+        gr.Markdown("# VidRusher AI Video Engine", elem_classes="main-title")
         gr.Markdown("**Autonomous AI video production** - Enter a prompt, and AI selects clips, generates voiceover, and produces synchronized video.")
         
-        with gr.Accordion("🔑 API Configuration (Optional)", open=True):
-            gr.Markdown("### 🛡️ Security Note")
+        with gr.Accordion("API Configuration (Optional)", open=True):
+            gr.Markdown("### Security Note")
             gr.Markdown("*Your API keys are processed only in-memory for this session. They are never stored, logged, or shared. Our code is [Open Source](https://github.com/mustafabasar7/vidrusher).*")
             with gr.Row():
                 gemini_input = gr.Textbox(
@@ -407,7 +407,7 @@ def create_demo():
                     type="password"
                 )
             status_output = gr.Textbox(label="Status", interactive=False)
-            init_btn = gr.Button("🔄 Initialize Engine", variant="secondary")
+            init_btn = gr.Button("Initialize Engine", variant="secondary")
             init_btn.click(initialize_engine, inputs=[gemini_input, google_tts_input], outputs=[status_output])
         
         with gr.Row():
@@ -418,10 +418,10 @@ def create_demo():
                     lines=3
                 )
                 with gr.Row():
-                    index_btn = gr.Button("🔍 Scan Library", variant="secondary")
-                    generate_btn = gr.Button("🚀 Generate Video", variant="primary")
+                    index_btn = gr.Button("Scan Library", variant="secondary")
+                    generate_btn = gr.Button("Generate Video", variant="primary")
                 
-                gr.Markdown("### 🖼️ Video Library (Keyframes)")
+                gr.Markdown("### Video Library (Keyframes)")
                 gallery = gr.Gallery(label="Analyzed Frames", columns=3, height="auto")
                 
                 index_btn.click(index_videos, inputs=[gemini_input], outputs=[gallery])
