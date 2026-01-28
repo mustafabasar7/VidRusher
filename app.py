@@ -4,6 +4,8 @@ import time
 import subprocess
 import datetime
 import sys
+import shutil
+import traceback
 import argparse
 import re
 import asyncio
@@ -394,13 +396,15 @@ def create_demo():
                 raise ValueError("Too many videos! Maximum limit is 10 videos.")
                 
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            upload_dir = os.path.join(".", "temp", f"upload_{timestamp}")
-            os.makedirs(upload_dir, exist_ok=True)
-            
             import shutil
+            if os.path.exists(upload_dir) and len(os.listdir(upload_dir)) >= total_files:
+                return upload_dir # Skip re-copying if already done
+                
+            os.makedirs(upload_dir, exist_ok=True)
             for i, f_obj in enumerate(upload_files):
                 filename = os.path.basename(f_obj.name)
-                if progress:
+                if progress is not None:
+                    # Map 0.0-0.2 range to file preparation
                     prog_val = (i + 1) / total_files * 0.2
                     progress(prog_val, desc=f"Preparing video {i+1}/{total_files}: {filename}")
                 
@@ -422,26 +426,20 @@ def create_demo():
         
         raise ValueError("No MP4 videos found! Please upload clips or select a valid folder.")
 
-    def process_video(prompt, gemini_key, google_key, stock_path, upload_files, progress=gr.Progress()):
+    async def process_video(prompt, gemini_key, google_key, stock_path, upload_files, progress=gr.Progress()):
         """Main video generation function."""
         if not prompt:
             return None, "Please enter a prompt!", []
         
         try:
             working_folder = get_working_folder(stock_path, upload_files, progress=progress)
-        except ValueError as e:
-            return None, f"❌ {str(e)}", []
             
-        print(f"Using library in: {working_folder}")
-
-        # Initialize engine with the chosen folder
-        engine = VidRusherEngine(
-            stock_folder=working_folder,
-            gemini_key=gemini_key if gemini_key else None,
-            google_tts_key=google_key if google_key else None
-        )
-        
-        async def async_run():
+            engine = VidRusherEngine(
+                stock_folder=working_folder,
+                gemini_key=gemini_key if gemini_key else None,
+                google_tts_key=google_key if google_key else None
+            )
+            
             scenes, thumbs = await engine.generate_script(prompt, progress)
             
             if not scenes:
@@ -462,25 +460,24 @@ def create_demo():
                 reasoning_md += f"> *{scene.get('reasoning', 'Best match selected.')}*\n\n"
             
             return output_video, reasoning_md, thumbs
-        
-        return asyncio.run(async_run())
+            
+        except Exception as e:
+            err_msg = f"❌ Error: {str(e)}\n\n```\n{traceback.format_exc()}\n```"
+            return None, err_msg, []
     
-    def index_videos(gemini_key, stock_path, upload_files, progress=gr.Progress()):
+    async def index_videos(gemini_key, stock_path, upload_files, progress=gr.Progress()):
         """Index video library and show keyframes."""
         try:
             working_folder = get_working_folder(stock_path, upload_files, progress=progress)
-        except ValueError as e:
-            gr.Warning(str(e))
-            return []
+            engine = VidRusherEngine(stock_folder=working_folder, gemini_key=gemini_key)
             
-        engine = VidRusherEngine(stock_folder=working_folder, gemini_key=gemini_key)
-        
-        async def async_index():
             engine._update_progress(progress, 0.1, "Scanning library...")
             indexed = await engine._extract_keyframes(progress)
             return [item['path'] for item in indexed]
-        
-        return asyncio.run(async_index())
+        except Exception as e:
+            gr.Warning(f"Indexing failed: {str(e)}")
+            print(traceback.format_exc())
+            return []
 
     # Build Gradio Interface
     with gr.Blocks(
