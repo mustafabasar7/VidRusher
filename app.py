@@ -153,13 +153,14 @@ class VidRusherEngine:
             img_bytes = img_byte_arr.getvalue()
             contents.append(types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"))
             
-        contents.append("""
-        You are a video producer. Create a script for a video about: '{prompt}'.
-        Use ONLY the provided clip filenames for 'video_file'. 
-        For each scene, provide:
-        - 'text': The narration/voiceover text.
-        - 'video_file': The filename of the clip that best fits this part of the narration.
-        - 'reasoning': Why this clip was chosen.
+        contents.append(f"""
+        CONTEXT: You are a video editor. Your goal is to create a logical video script for: '{prompt}'.
+        
+        RULES:
+        1. Use ONLY the provided 'CLIP' filenames for 'video_file'.
+        2. Filter out clips that are NOT relevant to the theme '{prompt}'. (e.g., if the topic is dogs, skip coffee clips).
+        3. If no clips are relevant, return an empty array [].
+        4. Provide 'reasoning' for why each clip was chosen or why it fits the narration.
         
         Return the result as a JSON array of objects.
         """)
@@ -171,13 +172,13 @@ class VidRusherEngine:
                 config=types.GenerateContentConfig(
                     response_mime_type='application/json',
                     response_schema={
-                        "type": "array",
+                        "type": "ARRAY",
                         "items": {
-                            "type": "object",
+                            "type": "OBJECT",
                             "properties": {
-                                "text": {"type": "string"},
-                                "video_file": {"type": "string"},
-                                "reasoning": {"type": "string"}
+                                "text": {"type": "STRING"},
+                                "video_file": {"type": "STRING"},
+                                "reasoning": {"type": "STRING"}
                             },
                             "required": ["text", "video_file", "reasoning"]
                         }
@@ -186,8 +187,8 @@ class VidRusherEngine:
             )
             
             scenes = response.parsed
-            if not isinstance(scenes, list):
-                # Fallback if parsed isn't a list for some reason
+            if scenes is None:
+                # Manual parsing if response.parsed is somehow empty but text exists
                 text = response.text
                 json_match = re.search(r'\[.*\]', text, re.DOTALL)
                 content = json_match.group(0) if json_match else text.strip()
@@ -196,10 +197,10 @@ class VidRusherEngine:
                 
             return scenes, [item['path'] for item in video_indexes]
         except Exception as e:
-            print(f"AI Error: {e}")
-            fallback = [{"text": f"Generated content for: {prompt}", 
+            print(f"AI Error Detail: {str(e)}")
+            fallback = [{"text": f"Wait, I couldn't find relevant clips for '{prompt}' in your library.", 
                          "video_file": video_indexes[0]['filename'], 
-                         "reasoning": "AI response parsing failed or API error, using first video."}]
+                         "reasoning": f"AI Error: {str(e)[:100]}. Please make sure you have relevant videos."}]
             return fallback, [item['path'] for item in video_indexes]
 
     async def generate_audio(self, scenes):
