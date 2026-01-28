@@ -332,14 +332,31 @@ def create_demo():
         video_count = len(current_engine[0].get_stock_videos())
         return f"Engine initialized! Found {video_count} videos in: {current_engine[0].stock_folder}"
     
-    def process_video(prompt, gemini_key, google_key, stock_path, progress=gr.Progress()):
+    def process_video(prompt, gemini_key, google_key, stock_path, upload_files, progress=gr.Progress()):
         """Main video generation function."""
         if not prompt:
             return None, "Please enter a prompt!", []
         
-        # Initialize/update engine with keys and path
+        # Determine working folder: use uploads if provided, otherwise stock_path
+        working_folder = stock_path if stock_path else "."
+        
+        if upload_files:
+            # Create a unique temp folder for this upload session
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            upload_dir = os.path.join(".", "temp", f"upload_{timestamp}")
+            os.makedirs(upload_dir, exist_ok=True)
+            
+            # Copy uploaded files to the temp upload dir
+            import shutil
+            for f_obj in upload_files:
+                shutil.copy(f_obj.name, os.path.join(upload_dir, os.path.basename(f_obj.name)))
+            
+            working_folder = upload_dir
+            print(f"Using uploaded files in: {working_folder}")
+
+        # Initialize engine with the chosen folder
         engine = VidRusherEngine(
-            stock_folder=stock_path if stock_path else ".",
+            stock_folder=working_folder,
             gemini_key=gemini_key if gemini_key else None,
             google_tts_key=google_key if google_key else None
         )
@@ -429,6 +446,14 @@ def create_demo():
                 gr.Markdown("### Video Library (Keyframes)")
                 gallery = gr.Gallery(label="Analyzed Frames", columns=3, height="auto")
                 
+                with gr.Tab("Upload Your Videos"):
+                    video_upload = gr.File(
+                        label="Upload mp4 clips",
+                        file_count="multiple",
+                        file_types=[".mp4"]
+                    )
+                    gr.Markdown("*If you upload videos here, the system will use them instead of the Library Path.*")
+                
                 index_btn.click(index_videos, inputs=[gemini_input, stock_path_input], outputs=[gallery])
 
             with gr.Column(scale=1):
@@ -437,7 +462,7 @@ def create_demo():
         
         generate_btn.click(
             process_video, 
-            inputs=[prompt_input, gemini_input, google_tts_input, stock_path_input], 
+            inputs=[prompt_input, gemini_input, google_tts_input, stock_path_input, video_upload], 
             outputs=[video_output, reasoning_output, gallery]
         )
         
