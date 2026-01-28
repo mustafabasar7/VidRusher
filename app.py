@@ -394,15 +394,26 @@ def create_demo():
             total_files = len(upload_files)
             if total_files > 10:
                 raise ValueError("Too many videos! Maximum limit is 10 videos.")
-                
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            upload_dir = os.path.join(".", "temp", f"upload_{timestamp}")
             
-            # Skip re-copying if folder with enough files already exists
-            if os.path.exists(upload_dir) and len(os.listdir(upload_dir)) >= total_files:
-                return upload_dir
-                
+            # Use a consistent folder name based on file count (not timestamp)
+            # This ensures initialize_engine and process_video use the same folder
+            upload_dir = os.path.join(".", "temp", "user_uploads")
+            
+            # Check if we already have the right files
+            if os.path.exists(upload_dir):
+                existing_files = [f for f in os.listdir(upload_dir) if f.endswith(".mp4")]
+                if len(existing_files) >= total_files:
+                    return upload_dir
+            
+            # Clear and recreate the folder
+            if os.path.exists(upload_dir):
+                for f in os.listdir(upload_dir):
+                    try:
+                        os.remove(os.path.join(upload_dir, f))
+                    except:
+                        pass
             os.makedirs(upload_dir, exist_ok=True)
+            
             for i, f_obj in enumerate(upload_files):
                 filename = os.path.basename(f_obj.name)
                 if progress is not None:
@@ -411,6 +422,7 @@ def create_demo():
                 
                 shutil.copy(f_obj.name, os.path.join(upload_dir, filename))
             return upload_dir
+
 
             
         # 2. Check Local Path
