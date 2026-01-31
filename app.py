@@ -398,23 +398,27 @@ def create_demo():
             if total_files > 10:
                 raise ValueError("Too many videos! Maximum limit is 10 videos.")
             
-            # Use a consistent folder name based on file count (not timestamp)
-            # This ensures initialize_engine and process_video use the same folder
             upload_dir = os.path.join(".", "temp", "user_uploads")
+            thumb_cache = os.path.join(upload_dir, "assets", "thumbnails")
             
-            # Check if we already have the right files
-            if os.path.exists(upload_dir):
-                existing_files = [f for f in os.listdir(upload_dir) if f.endswith(".mp4")]
-                if len(existing_files) >= total_files:
-                    return upload_dir
-            
-            # Clear and recreate the folder
+            # ALWAYS clear and recreate to ensure fresh uploads are used
             if os.path.exists(upload_dir):
                 for f in os.listdir(upload_dir):
+                    f_path = os.path.join(upload_dir, f)
                     try:
-                        os.remove(os.path.join(upload_dir, f))
+                        if os.path.isfile(f_path):
+                            os.remove(f_path)
                     except:
                         pass
+            
+            # Clear thumbnail cache to force regeneration
+            if os.path.exists(thumb_cache):
+                for f in os.listdir(thumb_cache):
+                    try:
+                        os.remove(os.path.join(thumb_cache, f))
+                    except:
+                        pass
+                        
             os.makedirs(upload_dir, exist_ok=True)
             
             for i, f_obj in enumerate(upload_files):
@@ -425,8 +429,6 @@ def create_demo():
                 
                 shutil.copy(f_obj.name, os.path.join(upload_dir, filename))
             return upload_dir
-
-
             
         # 2. Check Local Path
         # On HF Spaces, we ignore the default '.' to force users to upload their own videos
